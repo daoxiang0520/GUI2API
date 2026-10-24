@@ -1,0 +1,6 @@
+# Dynamic GUI facade and native process/window binding.
+jsonschema>=4.18,<5
+psutil>=5.9
+pywin32>=306; sys_platform == "win32"
+# CDP DOM transport; Electron injection additionally uses requirements-messengers.txt.
+websockets>=15,<17

@@ -1,0 +1,4 @@
+# Optional: needed only for the Chromium CDP channel. Native channels use stdlib.
+websockets>=15,<17
+# Optional: only needed for appctl_mcp.py. JSON-lines and CLI do not use MCP SDK.
+mcp>=1.28,<2

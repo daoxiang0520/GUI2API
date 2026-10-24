@@ -1,0 +1,15 @@
+{
+  "format": "appctl.capabilities/1",
+  "app": {"id": "windows-shell", "name": "Windows Shell"},
+  "provider": {"config": "../objects.universality.json", "target": "windows-shell"},
+  "capabilities": [{
+    "id": "drives.is-folder",
+    "title": "确认系统驱动器容器类型",
+    "purpose": {"description": "取得 Shell 的驱动器容器，确认其 Self 对象为文件夹；不读取文件内容或打开窗口", "basis": "documentation", "sources": ["https://learn.microsoft.com/en-us/windows/win32/shell/shell-namespace", "reports/universality-20261023/shell.json"]},
+    "effect": "read",
+    "input_schema": {"type": "object", "properties": {}, "additionalProperties": false},
+    "output_schema": {"type": "boolean"},
+    "binding": {"root": "application", "path": [{"op": "call", "member": "NameSpace", "arguments": [17]}, {"op": "get", "member": "Self"}], "op": "get", "member": "IsFolder"},
+    "tests": [{"arguments": {}, "expected": true}]
+  }]
+}

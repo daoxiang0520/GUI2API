@@ -1,0 +1,16 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8">
+<title>AppCtl universality scratch page</title>
+<label>测试正文<textarea aria-label="测试正文" id="body"></textarea></label>
+<button id="submit">提交测试记录</button>
+<output id="echo" aria-live="polite" style="white-space:pre-wrap"></output><output id="count">0</output>
+<canvas role="img" aria-label="仅有像素的绘图区" width="200" height="60"></canvas>
+<script>
+let draft='', count=0;
+document.querySelector('#body').addEventListener('input', e=>{draft=e.target.value});
+document.querySelector('#submit').addEventListener('click', ()=>{
+  document.querySelector('#echo').textContent=draft;
+  document.querySelector('#count').textContent=String(++count);
+});
+const ctx=document.querySelector('canvas').getContext('2d');
+ctx.strokeRect(5,5,180,40);ctx.fillText('painted control',15,30);
+</script></html>

@@ -1,0 +1,4 @@
+-r requirements-objects.txt
+# Native Qt observation disassembles metadata references without executing them.
+capstone>=5.0
+psutil>=5.9

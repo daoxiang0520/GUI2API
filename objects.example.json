@@ -1,0 +1,30 @@
+{
+  "protocol": "appctl.objects/1",
+  "targets": {
+    "python-demo": {
+      "runtime": "python",
+      "description": "Owned Python business object; no windows or personal data",
+      "command": ["{python}", "{root}/bridges/python_agent.py", "--module", "{root}/tests/fixtures/business_objects.py"]
+    },
+    "javascript-demo": {
+      "runtime": "javascript",
+      "description": "Owned Node.js business object with async methods and EventEmitter",
+      "command": ["{node}", "{root}/bridges/node_agent.mjs", "--module", "{root}/tests/fixtures/business_objects.mjs"]
+    },
+    "dotnet-demo": {
+      "runtime": "dotnet",
+      "description": "Owned CLR business object through System.Reflection",
+      "command": ["{powershell}", "-NoLogo", "-NoProfile", "-NonInteractive", "-Sta", "-File", "{root}/bridges/Start-DotNetObjects.ps1", "-Source", "{root}/tests/fixtures/BusinessObjects.cs", "-FactoryType", "ObjectFixtures.Factory"]
+    },
+    "com-demo": {
+      "runtime": "com",
+      "description": "Owned Windows Scripting.Dictionary via actual COM IDispatch/ITypeInfo",
+      "command": ["{python}", "{root}/bridges/com_agent.py", "--dictionary-demo"]
+    },
+    "qt-demo": {
+      "runtime": "qt",
+      "description": "Owned PyQt5 QObject using actual QMetaObject properties, slots and signals",
+      "command": ["{python}", "{root}/bridges/python_agent.py", "--qt", "--module", "{root}/tests/fixtures/qt_objects.py"]
+    }
+  }
+}

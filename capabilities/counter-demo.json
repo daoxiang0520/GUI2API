@@ -1,0 +1,28 @@
+{
+  "format": "appctl.capabilities/1",
+  "app": {"id": "counter-demo", "name": "独立测试计数器", "version": "fixture-1"},
+  "provider": {"config": "../objects.example.json", "target": "python-demo"},
+  "capabilities": [
+    {
+      "id": "counter.read",
+      "title": "读取测试计数器",
+      "purpose": {"description": "读取自建测试对象的 count 属性", "basis": "declared", "sources": ["tests/fixtures/business_objects.py"]},
+      "effect": "read",
+      "input_schema": {"type": "object", "properties": {}, "additionalProperties": false},
+      "output_schema": {"type": "integer"},
+      "binding": {"root": "counter", "path": [], "op": "get", "member": "count"},
+      "tests": [{"arguments": {}, "expected": 0}]
+    },
+    {
+      "id": "counter.increment",
+      "title": "增加测试计数并验证状态",
+      "purpose": {"description": "增加自建测试对象的计数，并核对 count 与返回值一致", "basis": "declared", "sources": ["tests/fixtures/business_objects.py"]},
+      "effect": "write",
+      "input_schema": {"type": "object", "properties": {"amount": {"type": "integer", "minimum": 1, "maximum": 100}}, "required": ["amount"], "additionalProperties": false},
+      "output_schema": {"type": "integer"},
+      "binding": {"root": "counter", "path": [], "op": "call", "member": "add", "arguments": [{"$arg": "amount"}]},
+      "postconditions": [{"member": "count", "equals": {"$result": true}}],
+      "tests": [{"arguments": {"amount": 2}, "expected": 2}]
+    }
+  ]
+}

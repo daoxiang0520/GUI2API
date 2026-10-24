@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:appctl:objects:1",
+  "title": "AppCtl framework-neutral object protocol v1",
+  "description": "One UTF-8 JSON request and one matching response per line. Providers must reserve stdout for protocol frames. Business exceptions and ambiguous outcomes never imply automatic retry.",
+  "oneOf": [{"$ref": "#/$defs/request"}, {"$ref": "#/$defs/response"}],
+  "$defs": {
+    "request": {
+      "type": "object",
+      "required": ["id", "op", "args"],
+      "properties": {
+        "id": {"type": ["string", "integer", "null"]},
+        "op": {"enum": ["ping", "list", "describe", "get", "set", "call", "watch", "events", "release"]},
+        "args": {"type": "object"}
+      }
+    },
+    "response": {
+      "type": "object",
+      "required": ["id", "ok"],
+      "properties": {
+        "id": {"type": ["string", "integer", "null"]},
+        "ok": {"type": "boolean"},
+        "data": {"type": "object"},
+        "error": {"type": "object", "required": ["code", "message"], "properties": {"code": {"type": "string"}, "message": {"type": "string"}, "operation_may_have_executed": {"type": "boolean"}}}
+      },
+      "allOf": [{"if": {"properties": {"ok": {"const": true}}}, "then": {"required": ["data"]}, "else": {"required": ["error"]}}]
+    },
+    "value": {
+      "oneOf": [
+        {"type": "object", "required": ["kind", "value"], "properties": {"kind": {"const": "value"}, "value": {}}},
+        {"type": "object", "required": ["kind", "ref"], "properties": {"kind": {"const": "object"}, "ref": {"type": "string"}, "type": {"type": "string"}}}
+      ]
+    },
+    "objectDescription": {
+      "type": "object",
+      "required": ["type", "properties", "methods", "events"],
+      "properties": {
+        "type": {"type": "string"},
+        "relationships": {
+          "type": "array",
+          "description": "Optional structural object links supplied by metadata, without executing getters. They do not imply a callable native object interface.",
+          "items": {"type": "object", "required": ["relation", "object"], "properties": {"relation": {"type": "string"}, "name": {"type": "string"}, "object": {"$ref": "#/$defs/value"}}}
+        },
+        "properties": {"type": "array", "items": {"type": "object", "required": ["name", "readable", "writable"], "properties": {"name": {"type": "string"}, "type": {"type": "string"}, "readable": {"type": "boolean"}, "writable": {"type": "boolean"}}}},
+        "methods": {"type": "array", "items": {"type": "object", "required": ["name", "parameters", "returns", "effect"], "properties": {"name": {"type": "string"}, "parameters": {"type": "array"}, "returns": {"type": "string"}, "effect": {"enum": ["read", "write", "unknown"]}}}},
+        "events": {"type": "array", "items": {"type": "object", "required": ["name"], "properties": {"name": {"type": "string"}}}}
+      }
+    }
+  }
+}

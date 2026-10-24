@@ -1,0 +1,5 @@
+-r requirements-gui.txt
+-r requirements.txt
+-r requirements-capabilities.txt
+-r requirements-messengers.txt
+pytest

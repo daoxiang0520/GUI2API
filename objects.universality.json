@@ -1,0 +1,47 @@
+{
+  "protocol": "appctl.objects/1",
+  "targets": {
+    "word-automation": {
+      "runtime": "com",
+      "description": "Explicitly start Word automation; can create an application instance",
+      "command": [
+        "{python}",
+        "{root}/bridges/com_agent.py",
+        "--cache-metadata",
+        "--create",
+        "Word.Application"
+      ]
+    },
+    "excel-automation": {
+      "runtime": "com",
+      "description": "Explicitly start Excel automation; can create an application instance",
+      "command": [
+        "{python}",
+        "{root}/bridges/com_agent.py",
+        "--cache-metadata",
+        "--create",
+        "Excel.Application"
+      ]
+    },
+    "powerpoint-automation": {
+      "runtime": "com",
+      "description": "Explicitly start PowerPoint automation; may reuse an existing application instance",
+      "command": [
+        "{python}",
+        "{root}/bridges/com_agent.py",
+        "--cache-metadata",
+        "--create",
+        "PowerPoint.Application"
+      ]
+    },
+    "windows-shell": {
+      "runtime": "com",
+      "description": "Standard Windows Shell object model; metadata is discovered without opening a window",
+      "command": [
+        "{python}",
+        "{root}/bridges/com_agent.py",
+        "--system-shell"
+      ]
+    }
+  }
+}

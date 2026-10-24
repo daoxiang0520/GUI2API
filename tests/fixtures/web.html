@@ -1,0 +1,10 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>AppCtl CDP 验证</title>
+<style>body{font:18px sans-serif;padding:30px}button,input,select{font:inherit;margin:10px}canvas{border:1px solid #aaa;display:block}</style>
+<label>搜索内容 <input id="query" aria-label="搜索内容"></label>
+<button id="increment" onclick="document.querySelector('#count').textContent=String(++window.count)">计数增加</button>
+<output id="count" aria-label="计数结果" aria-live="polite">0</output>
+<label><input type="checkbox" id="check">测试复选框</label>
+<input type="password" aria-label="密码测试框" value="fixture-only">
+<canvas id="canvas" width="400" height="100" role="img" aria-label="纯画布示例，未暴露内部按钮对象"></canvas>
+<script>window.count=0;const c=document.querySelector('canvas').getContext('2d');c.strokeRect(15,20,140,50);c.font='18px sans-serif';c.fillText('画出来的按钮',25,52);</script>
+</html>

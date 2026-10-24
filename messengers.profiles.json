@@ -1,0 +1,30 @@
+{
+  "format": "appctl.application-profiles/1",
+  "apps": {
+    "wechat": {
+      "process_names": ["Weixin", "WeChat"],
+      "window_titles": ["微信", "WeChat"],
+      "backend": "uia3",
+      "bootstrap": "qt-accessibility-byte",
+      "restore_window": false,
+      "purpose_basis": "declared; validated against this installed build",
+      "slots": {
+        "search": {"roles": ["Edit"], "classes": ["mmui::XValidatorTextEdit"], "names": ["搜索"], "focus_before_replace": false, "purpose": "微信搜索字段的直接赋值与读回；不保证后台状态下触发业务搜索"},
+        "draft": {"roles": ["Edit", "Group", "Custom"], "classes": ["mmui::ChatInputField", "mmui::VoiceInputField"], "automation_ids": ["chat_input_field"], "write_enabled": false, "purpose": "当前会话草稿；写入未验证，保持禁用"}
+      },
+      "navigation": {"search_result": {"roles": ["ListItem"], "classes": ["mmui::XTableCell"], "ancestor_id": "search_list", "action": "select"}}
+    },
+    "qq": {
+      "process_names": ["QQ"],
+      "window_titles": ["QQ"],
+      "backend": "electron-node-api",
+      "bootstrap": "node-api-callback",
+      "api_module": "QQNT.dll",
+      "purpose_basis": "declared; validated against the current QQ renderer",
+      "slots": {
+        "search": {"css": "input[placeholder='搜索']", "model": "native-input", "purpose": "当前 QQ 窗口的搜索输入框"},
+        "draft": {"css": ".ProseMirror.ExEditor-qq-msg-editor", "model": "prosemirror", "purpose": "当前 QQ 会话的 ProseMirror 草稿对象"}
+      }
+    }
+  }
+}

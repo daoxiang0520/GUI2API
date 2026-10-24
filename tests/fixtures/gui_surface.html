@@ -1,0 +1,25 @@
+<!doctype html><html lang="zh"><meta charset="utf-8"><title>AppCtl generic GUI fixture</title>
+<label>Text <textarea id="body"></textarea></label><button id="submit">Submit fixture</button>
+<output id="echo" style="white-space:pre-wrap"></output><output id="count">0</output>
+<label><input id="check" type="checkbox">Checkbox</label>
+<label><input id="radio" type="radio" name="radio">Radio</label>
+<label>Choice <select id="choice"><option value="a">A</option><option value="b">B</option></select></label>
+<div id="editor" contenteditable="true"><p id="editorParagraph">Existing</p></div>
+<details id="details"><summary>Details</summary>Content</details>
+<input id="disabled" aria-label="Disabled" disabled><input id="password" type="password" aria-label="Password" value="fixture-secret">
+<input id="hidden" aria-label="Hidden" style="display:none">
+<div id="scroll" style="width:120px;height:50px;overflow:auto"><div style="height:500px">Scroll content</div></div>
+<div id="delegated" tabindex="0">Delegated handler</div><output id="delegatedCount">0</output>
+<div id="shadowHost"></div><iframe id="frame" srcdoc="<label>Frame input<input id='frameInput'></label>"></iframe>
+<input id="removable" aria-label="Removable"><button id="remove">Remove target</button>
+<canvas id="canvas" width="200" height="60"></canvas>
+<script>
+let draft='',count=0;
+document.querySelector('#body').addEventListener('input',e=>draft=e.target.value);
+document.querySelector('#submit').addEventListener('click',()=>{document.querySelector('#echo').textContent=draft;document.querySelector('#count').textContent=String(++count)});
+document.querySelector('#delegated').addEventListener('click',()=>{const o=document.querySelector('#delegatedCount');o.textContent=String(Number(o.textContent)+1)});
+const root=document.querySelector('#shadowHost').attachShadow({mode:'open'});
+root.innerHTML='<label>Shadow input<input id="shadowInput"></label>';
+document.querySelector('#remove').addEventListener('click',()=>document.querySelector('#removable').remove());
+const c=document.querySelector('canvas').getContext('2d');c.fillText('Pixel-only interior',10,20);
+</script></html>

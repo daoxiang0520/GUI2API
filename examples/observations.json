@@ -1,0 +1,46 @@
+{
+  "observed_at": "synthetic example; no live process",
+  "apps": {
+    "demo": {
+      "native_qt_objects": {
+        "ok": true,
+        "pid": 0,
+        "roots": [
+          "demo-root"
+        ],
+        "scope": "synthetic metadata only; cannot execute",
+        "objects": [
+          {
+            "id": "demo-root",
+            "type": "ExampleObject",
+            "parent": null,
+            "children": []
+          }
+        ],
+        "classes": [
+          {
+            "type": "ExampleObject",
+            "base_type": null,
+            "properties": [
+              {
+                "name": "title",
+                "type": "QString"
+              }
+            ],
+            "methods": [
+              {
+                "name": "setTitle",
+                "signature": "setTitle(QString)",
+                "parameters": [
+                  "QString"
+                ],
+                "returns": "void"
+              }
+            ],
+            "events": []
+          }
+        ]
+      }
+    }
+  }
+}

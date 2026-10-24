@@ -1,0 +1,13 @@
+<!doctype html><meta charset="utf-8"><title>AppCtl incremental learning DOM</title>
+<button id="open">Open details</button><section id="host"></section>
+<script>
+window.fixture={opens:0,closes:0,open:false};
+document.querySelector('#open').onclick=()=>{
+ if(fixture.open)return;
+ fixture.opens++;fixture.open=true;
+ const panel=document.createElement('section');panel.id='panel';panel.setAttribute('aria-label','Details panel');
+ panel.innerHTML='<label>Detail entry<input id="entry"></label><button id="close">Close details</button>';
+ document.querySelector('#host').append(panel);
+ panel.querySelector('#close').onclick=()=>{fixture.closes++;fixture.open=false;panel.remove()};
+};
+</script>

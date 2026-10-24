@@ -1,0 +1,17 @@
+{
+  "protocol": "appctl.objects/1",
+  "targets": {
+    "wechat-controls": {
+      "runtime": "python",
+      "description": "Explicitly enable the checked WeChat Qt accessibility profile for this session; expose search and current draft fields",
+      "timeout": 30,
+      "command": ["{python}", "{root}/bridges/messenger_agent.py", "--app", "wechat"]
+    },
+    "qq-controls": {
+      "runtime": "python",
+      "description": "Explicitly attach a temporary Node-API bridge to QQ; load the local pump addon and expose Electron search and ProseMirror draft objects",
+      "timeout": 30,
+      "command": ["{python}", "{root}/bridges/messenger_agent.py", "--app", "qq"]
+    }
+  }
+}

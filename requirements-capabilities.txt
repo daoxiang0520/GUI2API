@@ -1,0 +1,3 @@
+# Optional named capability registry, on top of the object providers.
+-r requirements-objects.txt
+jsonschema>=4.18,<5

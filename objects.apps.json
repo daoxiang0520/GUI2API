@@ -1,0 +1,20 @@
+{
+  "protocol": "appctl.objects/1",
+  "targets": {
+    "wps-automation": {
+      "runtime": "com",
+      "description": "Explicitly activate WPS Writer's automation object; may start a hidden WPS instance",
+      "command": ["{python}", "{root}/bridges/com_agent.py", "--create", "kwps.Application"]
+    },
+    "wps-active": {
+      "runtime": "com",
+      "description": "Existing active WPS Writer automation object; never launches WPS",
+      "command": ["{python}", "{root}/bridges/com_agent.py", "--active", "kwps.Application"]
+    },
+    "app-audio": {
+      "runtime": "dotnet",
+      "description": "Windows Core Audio session objects scoped to WeChat, QQ, WPS and CloudMusic",
+      "command": ["{powershell}", "-NoLogo", "-NoProfile", "-NonInteractive", "-Mta", "-File", "{root}/bridges/Start-DotNetObjects.ps1", "-Source", "{root}/bridges/CoreAudioObjects.cs", "-FactoryType", "SystemObjectAdapters.CoreAudioFactory"]
+    }
+  }
+}

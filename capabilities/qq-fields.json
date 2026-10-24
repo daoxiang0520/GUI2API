@@ -1,0 +1,315 @@
+{
+  "format": "appctl.capabilities/1",
+  "app": {
+    "id": "qq",
+    "name": "QQ"
+  },
+  "provider": {
+    "config": "../objects.messengers.json",
+    "target": "qq-controls"
+  },
+  "capabilities": [
+    {
+      "id": "search.read",
+      "title": "Read search",
+      "purpose": {
+        "description": "Read or replace the explicitly bound current search field; no message is sent",
+        "basis": "observed",
+        "sources": [
+          "../reports/messenger-runtime-20261024/qq-field-validation.json"
+        ]
+      },
+      "effect": "read",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "string"
+      },
+      "binding": {
+        "root": "application",
+        "path": [
+          {
+            "op": "get",
+            "member": "search"
+          }
+        ],
+        "op": "get",
+        "member": "text"
+      },
+      "tests": [
+        {
+          "arguments": {},
+          "expected": ""
+        }
+      ]
+    },
+    {
+      "id": "search.replace",
+      "title": "Replace search with compare-and-set",
+      "purpose": {
+        "description": "Read or replace the explicitly bound current search field; no message is sent",
+        "basis": "observed",
+        "sources": [
+          "../reports/messenger-runtime-20261024/qq-field-validation.json"
+        ]
+      },
+      "effect": "write",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 4096,
+            "pattern": "^[^\r\n\u0000]*$"
+          },
+          "expected": {
+            "type": "string",
+            "maxLength": 65536
+          }
+        },
+        "required": [
+          "text",
+          "expected"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "source": {
+            "const": "DOM.nativeValue+inputEvent"
+          },
+          "status": {
+            "const": "field_value_verified"
+          },
+          "message_sent": {
+            "const": false
+          },
+          "business_completion_proven": {
+            "const": false
+          }
+        },
+        "required": [
+          "value",
+          "source",
+          "status",
+          "message_sent",
+          "business_completion_proven"
+        ],
+        "additionalProperties": false
+      },
+      "binding": {
+        "root": "application",
+        "path": [
+          {
+            "op": "get",
+            "member": "search"
+          }
+        ],
+        "op": "call",
+        "member": "replace",
+        "arguments": [
+          {
+            "$arg": "text"
+          },
+          {
+            "$arg": "expected"
+          }
+        ]
+      },
+      "postconditions": [
+        {
+          "member": "text",
+          "equals": {
+            "$arg": "text"
+          }
+        }
+      ],
+      "tests": [
+        {
+          "arguments": {
+            "text": "appctl-capability-contract-check",
+            "expected": ""
+          },
+          "expected": {
+            "value": "appctl-capability-contract-check",
+            "source": "DOM.nativeValue+inputEvent",
+            "status": "field_value_verified",
+            "message_sent": false,
+            "business_completion_proven": false
+          }
+        },
+        {
+          "arguments": {
+            "text": "",
+            "expected": "appctl-capability-contract-check"
+          },
+          "expected": {
+            "value": "",
+            "source": "DOM.nativeValue+inputEvent",
+            "status": "field_value_verified",
+            "message_sent": false,
+            "business_completion_proven": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "draft.read",
+      "title": "Read draft",
+      "purpose": {
+        "description": "Read or replace the explicitly bound current draft field; no message is sent",
+        "basis": "observed",
+        "sources": [
+          "../reports/messenger-runtime-20261024/qq-field-validation.json"
+        ]
+      },
+      "effect": "read",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "string"
+      },
+      "binding": {
+        "root": "application",
+        "path": [
+          {
+            "op": "get",
+            "member": "draft"
+          }
+        ],
+        "op": "get",
+        "member": "text"
+      },
+      "tests": [
+        {
+          "arguments": {},
+          "expected": ""
+        }
+      ]
+    },
+    {
+      "id": "draft.replace",
+      "title": "Replace draft with compare-and-set",
+      "purpose": {
+        "description": "Read or replace the explicitly bound current draft field; no message is sent",
+        "basis": "observed",
+        "sources": [
+          "../reports/messenger-runtime-20261024/qq-field-validation.json"
+        ]
+      },
+      "effect": "write",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 4096,
+            "pattern": "^[^\r\n\u0000]*$"
+          },
+          "expected": {
+            "type": "string",
+            "maxLength": 65536
+          }
+        },
+        "required": [
+          "text",
+          "expected"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "source": {
+            "const": "ProseMirror.DocViewDesc.node"
+          },
+          "status": {
+            "const": "editor_model_verified"
+          },
+          "message_sent": {
+            "const": false
+          },
+          "business_completion_proven": {
+            "const": false
+          }
+        },
+        "required": [
+          "value",
+          "source",
+          "status",
+          "message_sent",
+          "business_completion_proven"
+        ],
+        "additionalProperties": false
+      },
+      "binding": {
+        "root": "application",
+        "path": [
+          {
+            "op": "get",
+            "member": "draft"
+          }
+        ],
+        "op": "call",
+        "member": "replace",
+        "arguments": [
+          {
+            "$arg": "text"
+          },
+          {
+            "$arg": "expected"
+          }
+        ]
+      },
+      "postconditions": [
+        {
+          "member": "text",
+          "equals": {
+            "$arg": "text"
+          }
+        }
+      ],
+      "tests": [
+        {
+          "arguments": {
+            "text": "appctl-capability-contract-check",
+            "expected": ""
+          },
+          "expected": {
+            "value": "appctl-capability-contract-check",
+            "source": "ProseMirror.DocViewDesc.node",
+            "status": "editor_model_verified",
+            "message_sent": false,
+            "business_completion_proven": false
+          }
+        },
+        {
+          "arguments": {
+            "text": "",
+            "expected": "appctl-capability-contract-check"
+          },
+          "expected": {
+            "value": "",
+            "source": "ProseMirror.DocViewDesc.node",
+            "status": "editor_model_verified",
+            "message_sent": false,
+            "business_completion_proven": false
+          }
+        }
+      ]
+    }
+  ]
+}

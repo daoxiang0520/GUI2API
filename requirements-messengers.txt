@@ -1,0 +1,3 @@
+-r requirements-objects.txt
+frida>=17.16,<18
+psutil>=5.9

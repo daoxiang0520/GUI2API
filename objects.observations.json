@@ -1,0 +1,19 @@
+{
+  "protocol": "appctl.objects/1",
+  "targets": {
+    "native-snapshot-demo": {
+      "runtime": "native-observation",
+      "description": "Synthetic Qt object metadata; property reads, writes, calls and subscriptions are not connected",
+      "command": [
+        "{python}",
+        "{root}/bridges/observation_agent.py",
+        "--report",
+        "{root}/examples/observations.json",
+        "--app",
+        "demo",
+        "--backend",
+        "qt"
+      ]
+    }
+  }
+}
