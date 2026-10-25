@@ -88,6 +88,31 @@ def test_replaced_native_worker_invalidates_its_old_references(session):
     assert not any(c[0] == "invoke" for c in original.calls)
 
 
+@pytest.mark.parametrize('backend',['uia3','msaa','win32'])
+def test_bound_observation_reads_one_original_object_without_other_channels(session,backend):
+    observed=session.request('inspect',{'window':10,'backend':backend})
+    ref=observed['data']['elements'][0]['ref']
+    worker=session.workers[backend][0]
+    before={name:len(entry[0].calls) for name,entry in session.workers.items()}
+    result=session.request('observe',{'ref':ref})
+    assert result['ok'] and result['data']['element']['ref']==ref
+    assert result['data']['fresh'] and result['data']['scope']=='bound_control'
+    operation,args=worker.calls[-1]
+    assert operation=='inspect' and args['depth']==0 and args['limit']==1 and args['root_ref']==backend
+    assert all(len(entry[0].calls)==before[name] for name,entry in session.workers.items() if name!=backend)
+
+
+def test_bound_observation_rejects_worker_replacement_and_different_recipient(session):
+    observed=session.request('inspect',{'window':10,'backend':'msaa'})
+    ref=observed['data']['elements'][0]['ref']
+    worker=session.workers['msaa'][0]
+    worker.request=lambda op,args=None:{'ok':True,'data':{'elements':[row('different-object')]}}
+    assert session.request('observe',{'ref':ref})['error']['code']=='stale_ref'
+    worker.close()
+    assert session.request('observe',{'ref':ref})['error']['code']=='stale_ref'
+    assert session.workers['msaa'][0] is worker
+
+
 def test_missing_channel_is_not_reported_as_controls_removed(session):
     args = {"window": 10, "actionable": False}
     snapshot = session.request("inspect", args)["data"]["snapshot"]

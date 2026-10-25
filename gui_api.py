@@ -132,6 +132,7 @@ class GuiSession:
         self.learning_cache, self._learning = learning_cache, None
         self.learning_error = None
         self.action_health = {}
+        self.cache_stats = {'binding_hits':0, 'binding_misses':0, 'bound_reads':0}
 
     @property
     def learning(self):
@@ -180,6 +181,85 @@ class GuiSession:
                 self._discovery.mark_dirty('gui:' + source['id'], 'gui_event' if not observer_lost else 'event_observer_lost')
             source['dirty'] = True
         return state
+
+    def _binding_cache_fresh(self, source):
+        """Topology is a bounded hint; every reused object is also read live."""
+        state = self._check_external(source)
+        collection = source.get('collection')
+        if not collection or collection.get('cursor') or collection['options'].get('root_ref'):
+            return False
+        if time.monotonic()-collection['created'] > (30 if state['watching'] else 5):
+            return False
+        if collection.get('event_watching') and not state['watching']:
+            return False
+        structural = collection.get('structure_revision')
+        if state['watching']:
+            if structural is not None and state.get('structure_revision') is not None:
+                return structural == state['structure_revision']
+            return not state.get('changed') and not source.get('dirty')
+        # Event-less adapters still require a fresh exact object observation.
+        return True
+
+    def _observe_bound(self, ref):
+        """Read one original object; do not replace/validate the whole snapshot."""
+        record = self._record(ref)
+        source, old = self.sources[record['source']], record['row']
+        if source.get('adapter'):
+            if not getattr(source['adapter'], 'supports_bound_observation', False):
+                return None
+            response = source['adapter'].request({'op':'observe', 'ref':old['native_ref']})
+            self._runtime_error(response)
+        else:
+            response = checked(self.desktop.request('observe', {'ref':old['native_ref']}))
+        raw = response.get('element')
+        if not response.get('fresh') or not isinstance(raw, dict) or raw.get('ref') != old['native_ref']:
+            return None
+        if not isinstance(raw.get('role'), str) or not isinstance(raw.get('actions'), list):
+            return None
+        current = {**raw, 'ref':ref, 'native_ref':old['native_ref'], 'source':source['id'],
+                   'parent':old.get('parent'), 'methods':list(raw['actions'])}
+        if not source.get('adapter') and not current.get('password'):
+            rect = current.get('rect',{})
+            live = not current.get('offscreen') and rect.get('width',0)>0 and rect.get('height',0)>0
+            inputs = ['click_input','scroll_input'] if live else []
+            if 'focus' in current['methods']:
+                inputs.append('press_keys')
+                if current['role'] in ('Edit','ComboBox','Group','Document','Custom') and not current.get('msaa_state',0)&0x40:
+                    inputs.append('type_text')
+            current['methods'].extend(inputs)
+        if 'invoke' in current['methods']:
+            weak=current.get('backend')=='msaa' or 'Qt' in current.get('framework','') or str(current.get('invoke_reliability','')).startswith('unreliable')
+            current['invoke_reliability']='unreliable' if weak else 'provider_contract_only'
+            current['recommended_method']='click_input' if weak and 'click_input' in current['methods'] else 'invoke_with_postcondition'
+        self.cache_stats['bound_reads'] += 1
+        return current
+
+    @staticmethod
+    def _same_bound_identity(old, current, *, include_label=True):
+        fields = ('role','automation_id','class_name','backend','hwnd','invoke_reliability')
+        same = all(old.get(field)==current.get(field) for field in fields)
+        same &= bool(old.get('password')) == bool(current.get('password'))
+        if include_label and old.get('role') not in ('Edit','ComboBox','Document','Group'):
+            same &= old.get('name','') == current.get('name','')
+        return bool(same)
+
+    def _reuse_binding(self, ref, method=None):
+        """A cache hit only selects a candidate. Fresh metadata permits reuse."""
+        try:
+            record = self._record(ref)
+            source = self.sources[record['source']]
+            if self._binding_cache_fresh(source):
+                current = self._observe_bound(ref)
+                if current is not None and self._same_bound_identity(record['row'],current) and (method is None or method in current['methods']) and self._binding_cache_fresh(source):
+                    record['bound_observation'] = current
+                    self.cache_stats['binding_hits'] += 1
+                    return True
+        except Exception:
+            # No operation has been dispatched. Fall back to a normal observation,
+            # which must still resolve the old capability or reject it.
+            pass
+        self.cache_stats['binding_misses'] += 1
+        return False
 
     @property
     def discovery(self):
@@ -357,7 +437,8 @@ class GuiSession:
             collection = source['collection'] = {'rows':OrderedDict(), 'snapshot':data.get('snapshot'),
                 'observation_id':uuid.uuid4().hex,
                 'options':{k:v for k,v in args.items() if k != 'cursor'}, 'created':time.monotonic(),
-                'event_revision':event_state['revision'], 'event_watching':event_state['watching']}
+                'event_revision':event_state['revision'], 'event_watching':event_state['watching'],
+                'structure_revision':event_state.get('structure_revision')}
             source['dirty'] = False
         if collection is None or collection['snapshot'] != data.get('snapshot'):
             raise Fault('stale_snapshot', 'The indexed observation changed between pages; scan again')
@@ -451,6 +532,8 @@ class GuiSession:
         method = SHORTCUTS.get(method, method)
         record = self._record(args.get('ref'))
         row, source = record['row'], self.sources[record['source']]
+        if row.get('password'):
+            raise Fault('protected_control', 'Protected controls cannot be invoked')
         if method not in row['methods']:
             raise Fault('protected_control' if row.get('password') else 'unsupported', 'This node does not advertise this method')
         from jsonschema import Draft202012Validator
@@ -555,6 +638,32 @@ class GuiSession:
         while True:
             attempts+=1
             try:
+                bound = None; bound_read = None
+                if 'ref' in condition and condition['field'] != 'exists':
+                    if condition['field']=='value' and (not source.get('adapter') or getattr(source['adapter'],'supports_bound_observation',False)):
+                        # Native/DOM get resolves and checks the original object
+                        # itself, including protection and current value. A second
+                        # metadata read would add a redundant provider round trip.
+                        bound_read=self._call({'ref':condition['ref'],'method':'get','arguments':{'max_length':100000}})
+                        bound={'value':bound_read.get('data',{}).get('value')}
+                    else:
+                        try: bound = self._observe_bound(condition['ref'])
+                        except Exception: pass
+                        if bound is not None and not self._same_bound_identity(self.refs[condition['ref']]['row'],bound,include_label=False):
+                            bound = None
+                if bound is not None:
+                    field=condition['field']; observable=field in bound; value=bound.get(field)
+                    if field=='value':
+                        read=bound_read
+                        value=read.get('data',{}).get('value')
+                        observable=read.get('ok') and 'value' in read.get('data',{}) and not read.get('data',{}).get('label_only') and not read.get('data',{}).get('truncated')
+                    observation={'observable':bool(observable),'matches':1,'passed':bool(observable and same_json(value,condition['equals'])),
+                                 'read_scope':'bound_control','cached_value_used':False}
+                    if observation['passed'] or time.monotonic()>=deadline:
+                        return {**observation,'field':field,'read_attempts':attempts,'automatic_retries':0,
+                                'business_completion_proven':False,'causality_verified':False}
+                    time.sleep(min(condition['interval_ms']/1000,max(0,deadline-time.monotonic())))
+                    continue
                 data=self._find({'source':source['id'],'refresh':True,'compact':False,'limit':3000,**condition.get('selector',{})})
                 rows=data['elements']
                 if 'ref' in condition:
@@ -571,10 +680,11 @@ class GuiSession:
                     if field=='value':
                         read=self._call({'ref':rows[0]['ref'],'method':'get','arguments':{'max_length':100000}})
                         value=read.get('data',{}).get('value')
-                        observable=read.get('ok') and not read.get('data',{}).get('label_only') and not read.get('data',{}).get('truncated')
+                        observable=read.get('ok') and 'value' in read.get('data',{}) and not read.get('data',{}).get('label_only') and not read.get('data',{}).get('truncated')
                     else: value=rows[0].get(field); observable=field in rows[0]
                 else: observable=False
-                observation={'observable':bool(observable),'matches':count,'passed':bool(observable and same_json(value,condition['equals']))}
+                observation={'observable':bool(observable),'matches':count,'passed':bool(observable and same_json(value,condition['equals'])),
+                             'read_scope':'window_snapshot','cached_value_used':False}
             except Exception as exc:
                 observation={'passed':False,'observable':False,'error':{'code':getattr(exc,'code','observation_failed')}}
             if observation['passed'] or time.monotonic()>=deadline:
@@ -717,6 +827,8 @@ class GuiSession:
                                 'automatic_exploration_actions':0,'graph_query':'learning_graph(source)',
                                 'persistent_binding_authority':False,'stored_ui_values':False},
                             'discovery':{'format':'appctl.discovery/1','automatic_control_index':'first find',
+                                'bound_cache':'bounded topology plus fresh exact-object metadata; miss triggers observation, never mutation replay',
+                                'postcondition_cache':'ref value/name/enabled/offscreen reads one live object; selector/exists keeps full observation',
                                 'object_probes':'discover(source) probes OBJID_NATIVEOM; object_target explores configured runtime roots',
                                 'default_business_calls':0,'native_metadata':'explicit read-only opt-in',
                                 'cache':'schema hashes and channel hints; no persisted refs or application values',

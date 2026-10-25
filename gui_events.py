@@ -94,7 +94,7 @@ class WindowEvents:
             if source not in self.sources:
                 if len(self.sources) >= 64:
                     return {'watching':False, 'revision':None, 'reason':'event_source_limit'}
-                self.sources[source] = {'window':window, 'pid':pid, 'revision':0}
+                self.sources[source] = {'window':window, 'pid':pid, 'revision':0, 'structure_revision':0}
             if self.thread is None:
                 self.thread = threading.Thread(target=self._run, name='gui2api-events', daemon=True)
                 self.thread.start()
@@ -113,6 +113,11 @@ class WindowEvents:
                 for record in self.sources.values():
                     if record['window'] == root and record['pid'] == owner:
                         record['revision'] += 1
+                        # Property/selection changes still invalidate searches,
+                        # but an exact bound object can be checked independently.
+                        # Unknown events conservatively count as structural.
+                        if event not in range(0x8005, 0x800F):
+                            record['structure_revision'] += 1
                         changed = True
                 if changed:
                     self.condition.notify_all()
@@ -132,6 +137,7 @@ class WindowEvents:
                 changed = bool(record and after is not None and record['revision'] != after)
                 if not watching or changed or time.monotonic() >= deadline:
                     return {'watching':watching, 'revision':record['revision'] if record else None,
+                            'structure_revision':record['structure_revision'] if record else None,
                             'changed':changed, 'provider':'WinEventHook', 'contains_values':False,
                             'coalesced':True, 'complete':False,
                             **({'reason':self.failure or 'not_subscribed'} if not watching else {})}

@@ -4,6 +4,8 @@
 
 当前基线为 **0.5.0**。配套常驻 Bot、人格、记忆及 DSH 插件单独维护在 [dsh-winbot](https://github.com/daoxiang0520/dsh-winbot)。
 
+本地绑定缓存已支持单控件实时核对、缓存 rebind 和基于 ref 的定点后置校验。见 [缓存契约](CACHE.md) 与 [速度测试](docs/CACHE_BENCHMARKS.md)；首次发现与模型等待仍有开销。
+
 ## 能做什么
 
 - 原生 UIA3 / UIA / MSAA / Win32，多通道发现；Chromium 可连接已有 CDP endpoint 读取 DOM。

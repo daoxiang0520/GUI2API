@@ -12,6 +12,7 @@ ENGINE = ROOT / 'bridges/gui_dom.js'
 
 
 class CdpDOM:
+    supports_bound_observation = True
     def __init__(self, endpoint, target):
         from cdp_backend import CdpBackend
         self.backend = CdpBackend()
@@ -65,6 +66,7 @@ class CdpDOM:
 
 class ElectronDOM:
     """Bootstrap only binds a process/window; it contains no feature selectors."""
+    supports_bound_observation = True
     def __init__(self, desktop, target, api_module=None):
         from napi_runtime import NodeApiRuntime
         self.desktop, self.target = desktop, target
@@ -94,7 +96,7 @@ class ElectronDOM:
                   const prefix=request.op==='scan'&&!request.cursor
                     ? 'globalThis['+JSON.stringify(key)+']??=(('+engine+')());' : '';
                   return contents.executeJavaScript(prefix+
-                    '(async()=>{const api=globalThis['+JSON.stringify(key)+'];if(!api)return {error:"stale_ref",message:"Renderer navigated; scan again"};return api.dispatch('+JSON.stringify(request)+');})()',request.op!=='scan'&&request.method!=='get');
+                    '(async()=>{const api=globalThis['+JSON.stringify(key)+'];if(!api)return {error:"stale_ref",message:"Renderer navigated; scan again"};return api.dispatch('+JSON.stringify(request)+');})()',!['scan','observe'].includes(request.op)&&request.method!=='get');
                 },
                 async close(){if(!contents.isDestroyed())await contents.executeJavaScript('delete globalThis['+JSON.stringify(key)+']');return true;}
               };

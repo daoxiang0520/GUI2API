@@ -333,6 +333,30 @@ class DesktopSession:
             del self.snapshots[next(iter(self.snapshots))]
         return {"ok": True, "data": data, "backend": "router"}
 
+    def _observe_bound(self, args):
+        """Read one original provider object without rebuilding the window tree."""
+        ref = args.get('ref')
+        record = self.refs.get(ref)
+        if not record or time.monotonic()-record['seen'] > 600:
+            return error('stale_ref', 'The bound observation expired; inspect again')
+        backend = record['backend']
+        if backend not in ('uia3','uia','msaa','win32'):
+            return error('unsupported', 'This provider has no bounded object observation')
+        entry = self.workers.get(backend)
+        if not entry or entry[1] != record['generation'] or entry[0].process.poll() is not None:
+            return error('stale_ref', 'The original provider was replaced; inspect again')
+        result = self._call(backend, 'inspect', {'window':record['window'], 'root_ref':record['native_ref'],
+            'depth':0, 'limit':1, 'view':'raw', 'values':False, 'preserve_bindings':True, 'time_budget_ms':1000}, 3)
+        if not result.get('ok'): return result
+        rows = result.get('data',{}).get('elements',[])
+        if len(rows)!=1 or rows[0].get('ref')!=record['native_ref']:
+            return error('stale_ref', 'The exact original object was not observed')
+        row = {**rows[0], 'ref':ref, 'backend':backend}
+        # A scoped root has no parent in some providers. Preserve the known
+        # parent only as a locator hint, never as new relationship evidence.
+        row['parent'] = record['row'].get('parent')
+        return {'ok':True, 'data':{'element':row, 'scope':'bound_control', 'fresh':True}}
+
     def _action(self, op, args):
         ref = args.get("ref")
         if not ref:
@@ -426,6 +450,7 @@ class DesktopSession:
         if op in ('request_accessibility','read_console','dismiss_popup'):
             return self._call('win32',op,args)
         if op == 'input': return self._input(args)
+        if op == 'observe': return self._observe_bound(args)
         if op in ("apps", "window", "ping"):
             result=self._call("win32", op, args)
             if op=="window" and args.get("state","get")!="get":

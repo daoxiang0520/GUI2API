@@ -1,5 +1,7 @@
 # 动态 GUI → API / CLI
 
+本地绑定缓存支持单控件实时验证、缓存 rebind 和基于 ref 的定点后置校验，详见 [缓存与测速](CACHE.md)。目录执行可复用原始绑定；缓存失效时重新观察。
+
 这层直接枚举当前软件暴露的界面对象，给每个对象生成方法和参数 schema，不要求先注册“搜索联系人”“播放音乐”等业务功能。协议是 `appctl.gui/1`，实现位于 `gui_api.py`、`gui_runtime.py` 和 `bridges/gui_dom.js`。旧的命名业务功能层仍可使用，但不是调用 GUI 的前提。
 
 新增的[自动探索层](DISCOVERY.md)接入相同会话：`discover` 建立控件/业务对象目录，`discovery_describe` 查看 schema 与证据，`discovery_invoke` 调用绑定，`discovery_events` 读取原生 GUI 变化或已订阅的对象事件。首次 `find` 也会自动索引控件能力。旧的 `source/ref` 接口继续保留。

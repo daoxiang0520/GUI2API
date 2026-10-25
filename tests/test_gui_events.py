@@ -31,6 +31,7 @@ def test_one_hook_routes_multiple_sources_and_independent_cursors_without_values
         api.emit(0x800B, 11, -8)  # Caret blinking is not a control-tree mutation.
         first = events.read('a', after=0)
         assert first['revision'] == 1 and first['changed']
+        assert first['structure_revision']==0
         assert events.read('a', after=1)['changed'] is False
         assert events.read('same', after=0)['changed']
         assert not events.read('b', after=0)['changed']
@@ -40,6 +41,7 @@ def test_one_hook_routes_multiple_sources_and_independent_cursors_without_values
         api.emit(0x8004, 11, -4)
         assert not events.read('a')['watching']
         assert events.read('same')['revision'] == 2
+        assert events.read('same')['structure_revision']==1
     finally:
         assert events.close()['closed']
         assert not events.thread.is_alive()

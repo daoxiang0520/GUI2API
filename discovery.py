@@ -541,7 +541,7 @@ class DiscoveryManager:
                 "business_calls_during_discovery": 0, "property_reads_during_discovery": 0,
                 "coverage": "provider-exposed objects only; human-equivalent coverage unmeasured"}
 
-    def _selected(self, capability):
+    def _selected(self, capability, *, bound_only=False):
         if not isinstance(capability, str) or capability not in self.capabilities:
             raise Fault("stale_capability", "Rediscover; this capability is not bound in the current catalog/session")
         key, entry, binding = self.capabilities[capability]
@@ -551,10 +551,13 @@ class DiscoveryManager:
         if record['owner'].startswith('gui:'):
             source = self.gui._source(record['request']['source'])
             self.gui._check_external(source)
-            if entry['kind'] in ('control','control_group'):
+            if entry['kind'] in ('control','control_group') and not (bound_only and (
+                    entry['kind']=='control_group' or self.gui._reuse_binding(binding['ref'],binding['method']))):
                 # Refresh metadata once after a window change. Preserve exact live
                 # bindings; removed/replaced controls alone lose their IDs.
-                self.gui._find({'source':source['id'],'limit':1})
+                # A rejected exact-object probe must not return the same cached
+                # snapshot that was just rejected (providers can omit events).
+                self.gui._find({'source':source['id'],'limit':1,'refresh':bound_only})
                 current=self.capabilities.get(capability)
                 if current is None: raise Fault('stale_capability','This control/method was removed or replaced; rediscover')
                 key,entry,binding=current; record=self.records[key]
@@ -585,7 +588,7 @@ class DiscoveryManager:
         return {"catalog": record["id"], **copy.deepcopy(entry)}
 
     def invoke(self, capability, arguments=None, postcondition=None, method=None):
-        record, entry, binding = self._selected(capability)
+        record, entry, binding = self._selected(capability, bound_only=True)
         if entry.get('invalidated'): raise Fault('stale_capability','This control operation needs a new observation after '+entry['invalidated'])
         if entry['kind']=='control_group':
             from gui_api import SHORTCUTS
@@ -595,7 +598,7 @@ class DiscoveryManager:
             choices.sort(key=lambda c:c.get('reliability')=='unreliable')
             # Every choice below names one exact provider. This is initial
             # selection, never fallback/replay after a dispatched operation.
-            capability=choices[0]['id']; record,entry,binding=self._selected(capability)
+            capability=choices[0]['id']; record,entry,binding=self._selected(capability,bound_only=True)
         elif method is not None: raise Fault('invalid_arguments','method is only used with a grouped control id')
         if not entry["callable"]:
             raise Fault("not_callable", "Metadata is visible but this invocation channel is not connected or validated")

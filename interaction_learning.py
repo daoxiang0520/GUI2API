@@ -381,7 +381,8 @@ class InteractionLearning:
         if method is not None and SHORTCUTS.get(method,method) not in METHODS: raise Fault('invalid_arguments','Unknown rebind method')
         method=SHORTCUTS.get(method,method)
         bound=self.gui._source(source)
-        self.gui._find({'source':source,'refresh':True,'limit':1})
+        cached=bool(self.latest.get(source) and self.gui._binding_cache_fresh(bound))
+        if not cached: self.gui._find({'source':source,'refresh':True,'limit':1})
         current_id,current=self.app(bound)
         historical_id=app or current_id
         historical=self.store.apps.get(historical_id)
@@ -390,16 +391,32 @@ class InteractionLearning:
         migrated=historical_id!=current_id
         if migrated and (not allow_migration or historical.get('family')!=current.get('family')):
             raise Fault('stale_capability','Version/source namespace changed; explicit same-family candidate migration is required')
-        live=self.latest.get(source,{})
-        matches=[]
-        for row in live.get('rows',[]):
-            identity=live.get('refs',{}).get(row['ref'])
-            locator=current['nodes'].get(identity,{})
-            same=identity==node_id
-            if migrated:
-                same=(locator.get('role')==node.get('role') and locator.get('structure_hash')==node.get('structure_hash') and
-                      locator.get('automation_id_hash')==node.get('automation_id_hash') and locator.get('class_hash')==node.get('class_hash'))
-            if same and (method is None or method in row.get('methods',[])): matches.append(row)
+        def matching():
+            live=self.latest.get(source,{})
+            matches=[]
+            for row in live.get('rows',[]):
+                identity=live.get('refs',{}).get(row['ref'])
+                locator=current['nodes'].get(identity,{})
+                same=identity==node_id
+                if migrated:
+                    same=(locator.get('role')==node.get('role') and locator.get('structure_hash')==node.get('structure_hash') and
+                          locator.get('automation_id_hash')==node.get('automation_id_hash') and locator.get('class_hash')==node.get('class_hash'))
+                if same and (method is None or method in row.get('methods',[])): matches.append(row)
+            return matches
+        matches=matching()
+        if cached and (migrated or self.latest[source]['app']!=current_id or not matches or len(matches)>16 or
+                       not all(self.gui._reuse_binding(row['ref'],method) for row in matches)):
+            self.gui._find({'source':source,'refresh':True,'limit':1})
+            matches=matching();cached=False
+        if cached:
+            matches=[{**row,**{k:v for k,v in self.gui.refs[row['ref']]['bound_observation'].items()
+                               if k in ('name','enabled','offscreen','rect','methods')}} for row in matches]
+            # Only the chosen bindings were observed live. Other labels can
+            # change without changing topology, so old whole-window name counts
+            # must not masquerade as current label uniqueness.
+            for row in matches:
+                row.pop('same_name_role_count',None)
+                row.pop('unique_control_name_role_count',None)
         logical={}
         for row in matches: logical.setdefault(row.get('control_id',row['ref']),[]).append(row)
         count=len(logical)
@@ -418,6 +435,8 @@ class InteractionLearning:
             'status':'resolved' if resolved else 'migration_candidate' if count==1 else 'ambiguous' if count else 'not_observed',
             'ref':candidates[0]['ref'] if resolved else None,'candidates':candidates,'candidate_count':count,
             'historical_record_authorizes_execution':False,'live_identity_resolved':resolved,
+            'cache_hit':cached,'resolution_observation':'bound_control' if cached else 'window_snapshot',
+            'uniqueness_scope':'cached_topology_and_live_candidates' if cached else 'current_provider_snapshot',
             'version_migration':migrated,'migration_verified':False,
             'health':{**health,'resolution_success_rate':health['resolved']/health['attempts']},
             'next_action':'invoke_with_live_guards' if resolved else 'review_migration_candidate' if migrated and count else 'choose_candidate' if count else 'restore_or_observe_or_navigate'}

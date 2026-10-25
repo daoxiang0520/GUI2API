@@ -199,7 +199,15 @@
     return fail('unsupported');
   }
   return {async dispatch(request) {
-    try { return request.op === 'scan' ? scan(request) : await act(request); }
-    catch (error) { return fail(request.op === 'scan' || request.method === 'get' ? 'runtime_error' : 'outcome_unknown',String(error)); }
+    try {
+      if (request.op === 'scan') return scan(request);
+      if (request.op === 'observe') {
+        const e = resolve(request.ref);
+        if (!e) return fail('stale_ref');
+        return {element:describe(e,null),scope:'bound_control',fresh:true};
+      }
+      return await act(request);
+    }
+    catch (error) { return fail(request.op === 'scan' || request.op === 'observe' || request.method === 'get' ? 'runtime_error' : 'outcome_unknown',String(error)); }
   }};
 })

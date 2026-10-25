@@ -63,9 +63,19 @@ namespace AppCtl {
         }
         class WinRef { public long Window,H; public int Pid,ControlId; public string Class; public DateTime Seen; }
         static readonly Dictionary<string,WinRef> WinRefs=new Dictionary<string,WinRef>();
+        static WinRef ResolveWin(string id) {
+            WinRef r;
+            if(!WinRefs.TryGetValue(id,out r) || (DateTime.UtcNow-r.Seen).TotalMinutes>10 || !IsWindow(new IntPtr(r.H)) || Pid(r.H)!=r.Pid || !Within(r.Window,r.H) || Class(r.H)!=r.Class || GetDlgCtrlID(new IntPtr(r.H))!=r.ControlId) throw new Fault("stale_ref","Inspect again before using this Win32 reference.");
+            return r;
+        }
         static object WinInspect(Dictionary<string,object> a) {
-            long root=Hwnd(a); int limit=I(a,"limit",300),depth=I(a,"depth",6);
+            long window=Hwnd(a),root=window; int limit=I(a,"limit",300),depth=I(a,"depth",6);
             if(limit<1 || limit>3000 || depth<0 || depth>20) throw new Fault("invalid_arguments","depth must be 0..20 and limit 1..3000.");
+            if(S(a,"root_ref").Length>0) {
+                var bound=ResolveWin(S(a,"root_ref"));
+                if(bound.Window!=window) throw new Fault("invalid_target","The scope belongs to a different window.");
+                root=bound.H;
+            }
             var handles=ChildHandles(root,limit+1); var rows=new List<object>();
             foreach(long h in handles.Take(limit)) {
                 if(ChildDepth(root,h)>depth) continue;
@@ -76,17 +86,16 @@ namespace AppCtl {
                 if(edit && !password && !readOnly) actions.Add("set");
                 if(role=="Button") actions.Add("invoke");
                 if(role=="CheckBox") { actions.Add("toggle-on"); actions.Add("toggle-off"); }
-                var row=D("ref",id,"parent",h==root ? null : "h"+GetParent(new IntPtr(h)).ToInt64(),"role",h==root ? "Window" : role,"name",password || edit ? "" : Clip(Caption(h),160),"class_name",c,"automation_id",GetDlgCtrlID(new IntPtr(h)).ToString(),"enabled",IsWindowEnabled(new IntPtr(h)),"offscreen",!IsWindowVisible(new IntPtr(h)),"password",password,"actions",actions,"region",h==root ? "unknown" : "content","rect",Bounds(h));
+                var row=D("ref",id,"parent",h==window ? null : "h"+GetParent(new IntPtr(h)).ToInt64(),"role",h==window ? "Window" : role,"name",password || edit ? "" : Clip(Caption(h),160),"class_name",c,"automation_id",GetDlgCtrlID(new IntPtr(h)).ToString(),"enabled",IsWindowEnabled(new IntPtr(h)),"offscreen",!IsWindowVisible(new IntPtr(h)),"password",password,"actions",actions,"region",h==window ? "unknown" : "content","rect",Bounds(h));
                 row["hwnd"]=h;
                 if(GetDlgCtrlID(new IntPtr(h))<=0) row["automation_id"]="";
                 if(B(a,"values",false) && edit && !password) { try { row["value"]=WindowText(h,160); } catch(Fault) { row["value_unavailable"]=true; } }
-                rows.Add(row); WinRefs[id]=new WinRef { Window=root,H=h,Pid=Pid(h),Class=c,ControlId=GetDlgCtrlID(new IntPtr(h)),Seen=DateTime.UtcNow };
+                rows.Add(row); WinRefs[id]=new WinRef { Window=window,H=h,Pid=Pid(h),Class=c,ControlId=GetDlgCtrlID(new IntPtr(h)),Seen=DateTime.UtcNow };
             }
-            return D("window",root,"elements",rows,"visited",rows.Count,"truncated",handles.Count>limit,"depth_limit",depth);
+            return D("window",window,"elements",rows,"visited",rows.Count,"truncated",handles.Count>limit,"depth_limit",depth);
         }
         static object WinAction(string op,Dictionary<string,object> a) {
-            WinRef r;
-            if(!WinRefs.TryGetValue(S(a,"ref"),out r) || (DateTime.UtcNow-r.Seen).TotalMinutes>10 || !IsWindow(new IntPtr(r.H)) || Pid(r.H)!=r.Pid || !Within(r.Window,r.H) || Class(r.H)!=r.Class || GetDlgCtrlID(new IntPtr(r.H))!=r.ControlId) throw new Fault("stale_ref","Inspect again before using this Win32 reference.");
+            WinRef r=ResolveWin(S(a,"ref"));
             long h=r.H; int style=GetWindowLong(new IntPtr(h),-16); bool edit=EditClass(r.Class);
             if(edit && (style&32)!=0) throw new Fault("protected_control","Password controls are not exposed.");
             if(op=="input_target" || op=="focus") {

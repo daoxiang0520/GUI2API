@@ -1,0 +1,12 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>GUI2API owned cache fixture</title>
+<label>Payload<textarea id="payload"></textarea></label><button id="increment">Increment</button>
+<output id="count">0</output><output id="writes">0</output>
+<input id="removable" aria-label="Removable"><button id="remove">Remove target</button>
+<div id="background"></div>
+<script>
+const payload=document.querySelector('#payload'), count=document.querySelector('#count'), writes=document.querySelector('#writes');
+payload.addEventListener('input',()=>writes.textContent=String(Number(writes.textContent)+1));
+document.querySelector('#increment').addEventListener('click',()=>count.textContent=String(Number(count.textContent)+1));
+document.querySelector('#remove').addEventListener('click',()=>document.querySelector('#removable').remove());
+for(let i=0;i<100;i++){const row=document.createElement('div');row.id='item'+i;row.textContent='Static item '+i;document.querySelector('#background').append(row)}
+</script></html>
