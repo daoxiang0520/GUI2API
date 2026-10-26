@@ -94,5 +94,6 @@ def group_controls(rows):
 def public_locator(row):
     fields=('ref','name','role','backend','window','hwnd','rect','parent','automation_id','class_name',
             'fingerprint','parent_fingerprint','path_fingerprint','sibling_index','identity_confidence',
-            'identity_basis','same_name_role_count','unique_control_name_role_count','control_id','enabled','offscreen','methods','invoke_reliability','recommended_method')
+            'identity_basis','same_name_role_count','unique_control_name_role_count','control_id','enabled','offscreen','methods','invoke_reliability','recommended_method',
+            'resource_count','resource_kinds')
     return {k:row[k] for k in fields if k in row}

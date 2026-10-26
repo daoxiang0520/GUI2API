@@ -9,10 +9,17 @@ from object_bridge import Fault
 
 ROOT = Path(__file__).resolve().parent
 ENGINE = ROOT / 'bridges/gui_dom.js'
+RESOURCE_ENGINE = ROOT / 'bridges/gui_resources.js'
+
+
+def engine_source():
+    return '(function(){return (' + ENGINE.read_text(encoding='utf-8') + ')(' + RESOURCE_ENGINE.read_text(encoding='utf-8') + ');})'
 
 
 class CdpDOM:
     supports_bound_observation = True
+    supports_resources = True
+    supports_resource_capture = True
     def __init__(self, endpoint, target):
         from cdp_backend import CdpBackend
         self.backend = CdpBackend()
@@ -23,13 +30,15 @@ class CdpDOM:
         self.epoch = None
 
     def request(self, request):
+        if request.get('op') == 'resource_capture':
+            return self.capture_resource(request)
         from cdp_backend import DriverFault
         dispatched = False
         try:
             conn, _ = self.backend._connection(self.context)
             conn.drain()
             if request['op'] == 'scan' and not request.get('cursor'):
-                source = 'globalThis[' + json.dumps(self.key) + ']??=((' + ENGINE.read_text(encoding='utf-8') + ')())'
+                source = 'globalThis[' + json.dumps(self.key) + ']??=((' + engine_source() + ')())'
                 result = conn.rpc('Runtime.evaluate', {'expression': source})
                 self.object_id = result.get('result', {}).get('objectId')
                 if not self.object_id:
@@ -50,12 +59,29 @@ class CdpDOM:
             code = 'outcome_unknown' if dispatched and request.get('method') not in (None, 'get') else exc.code
             raise Fault(code, str(exc)) from exc
 
+    def capture_resource(self, request):
+        import math
+        rect = self.request({'op':'resource_rect','resource_ref':request['resource_ref']})
+        if rect.get('error'): return rect
+        pixels = rect['width'] * rect['height']
+        scale = min(1, math.sqrt(request.get('max_pixels',1000000)/pixels)) / max(1,rect.get('device_scale',1))
+        conn, _ = self.backend._connection(self.context)
+        result = conn.rpc('Page.captureScreenshot',{'format':'png','fromSurface':True,'captureBeyondViewport':False,
+            'clip':{key:rect[key] for key in ('x','y','width','height')} | {'scale':scale}})
+        after = self.request({'op':'resource_rect','resource_ref':request['resource_ref']})
+        if after != rect: raise Fault('resource_changed','Resource or geometry changed during capture')
+        encoded = result.get('data','')
+        if len(encoded) > (request['max_bytes']+2)//3*4:
+            raise Fault('resource_too_large','Rendered resource exceeds the requested byte limit')
+        return {'data_base64':encoded,'mime_type':'image/png','representation':'rendered_region',
+            'visible_only':True,'clipped':rect['clipped'],'scale':scale,'original_quality_verified':False}
+
     def close(self):
         cleanup = {'renderer_global_removed': False}
         try:
             if self.backend.connections:
                 conn, _ = self.backend._connection(self.context)
-                conn.rpc('Runtime.evaluate', {'expression': 'delete globalThis[' + json.dumps(self.key) + ']'})
+                conn.rpc('Runtime.evaluate', {'expression': 'globalThis[' + json.dumps(self.key) + ']?.dispose?.();delete globalThis[' + json.dumps(self.key) + ']'})
                 cleanup['renderer_global_removed'] = True
         except Exception:
             pass
@@ -67,6 +93,8 @@ class CdpDOM:
 class ElectronDOM:
     """Bootstrap only binds a process/window; it contains no feature selectors."""
     supports_bound_observation = True
+    supports_resources = True
+    supports_resource_capture = False
     def __init__(self, desktop, target, api_module=None):
         from napi_runtime import NodeApiRuntime
         self.desktop, self.target = desktop, target
@@ -96,13 +124,13 @@ class ElectronDOM:
                   const prefix=request.op==='scan'&&!request.cursor
                     ? 'globalThis['+JSON.stringify(key)+']??=(('+engine+')());' : '';
                   return contents.executeJavaScript(prefix+
-                    '(async()=>{const api=globalThis['+JSON.stringify(key)+'];if(!api)return {error:"stale_ref",message:"Renderer navigated; scan again"};return api.dispatch('+JSON.stringify(request)+');})()',!['scan','observe'].includes(request.op)&&request.method!=='get');
+                    '(async()=>{const api=globalThis['+JSON.stringify(key)+'];if(!api)return {error:"stale_ref",message:"Renderer navigated; scan again"};return api.dispatch('+JSON.stringify(request)+');})()',!['scan','observe'].includes(request.op)&&!request.op.startsWith('resource_')&&request.method!=='get');
                 },
-                async close(){if(!contents.isDestroyed())await contents.executeJavaScript('delete globalThis['+JSON.stringify(key)+']');return true;}
+                async close(){if(!contents.isDestroyed())await contents.executeJavaScript('globalThis['+JSON.stringify(key)+']?.dispose?.();delete globalThis['+JSON.stringify(key)+']');return true;}
               };
             })'''
             expression = '(' + factory + ')(' + ','.join(json.dumps(v, ensure_ascii=True) for v in
-                (str(target['window']), self.key, ENGINE.read_text(encoding='utf-8'))) + ')'
+                (str(target['window']), self.key, engine_source())) + ')'
             self.bridge.json('(()=>{globalThis[' + json.dumps(self.key) + ']=' + expression + ';return true;})()')
         except Exception:
             self.close()

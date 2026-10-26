@@ -1,5 +1,5 @@
 /* Framework adapter, not an application profile. No app names or CSS slots. */
-(function createGuiDOM() {
+(function createGuiDOM(createResources) {
   'use strict';
   const epoch = crypto.randomUUID(), ids = new WeakMap(), refs = new Map();
   let serial = 0, snapshot = null;
@@ -53,7 +53,7 @@
     const box = e.getBoundingClientRect(), style = win.getComputedStyle(e);
     const hidden = box.width === 0 || box.height === 0 || style.display === 'none' || style.visibility === 'hidden';
     const roles = {button:'Button', input: type === 'checkbox' ? 'CheckBox' : type === 'radio' ? 'RadioButton' : type === 'range' ? 'Slider' : 'Edit',
-      textarea:'Edit', select:'ComboBox', option:'ListItem', a:'Hyperlink', canvas:'Canvas', iframe:'Frame'};
+      textarea:'Edit', select:'ComboBox', option:'ListItem', a:'Hyperlink', img:'Image', canvas:'Canvas', iframe:'Frame'};
     const editingHost = e.isContentEditable && !e.parentElement?.isContentEditable;
     const semanticRole = e.getAttribute('role') || '';
     const ariaRoles = {button:'Button',checkbox:'CheckBox',switch:'CheckBox',radio:'RadioButton',textbox:'Edit',searchbox:'Edit',
@@ -76,7 +76,8 @@
       enabled:!e.matches(':disabled') && e.getAttribute('aria-disabled') !== 'true', offscreen:hidden,
       password:secret, editable:!!editingHost, actions, action_evidence:'DOM method/property; purpose and business effects unverified',
       rect:{x:box.x,y:box.y,width:box.width,height:box.height}, framework:'DOM', region:'content',
-      opaque: ['canvas','video'].includes(tag), open_shadow:!!e.shadowRoot};
+      opaque: ['canvas','video'].includes(tag), open_shadow:!!e.shadowRoot,
+      ...(!secret && media ? {resources:media.describe(e)} : {})};
   }
   function scan(request) {
     const limit = request.limit ?? 300, depth = request.depth ?? 40, max = request.max_nodes ?? 12000;
@@ -198,8 +199,10 @@
     }
     return fail('unsupported');
   }
-  return {async dispatch(request) {
+  const media=typeof createResources==='function' ? createResources({id,resolve,fail}) : null;
+  return {dispose(){media?.dispose();},async dispatch(request) {
     try {
+      if(request.op.startsWith('resource_'))return media ? await media.dispatch(request) : fail('resource_provider_unavailable');
       if (request.op === 'scan') return scan(request);
       if (request.op === 'observe') {
         const e = resolve(request.ref);

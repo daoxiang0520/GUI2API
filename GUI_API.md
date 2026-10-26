@@ -1,5 +1,7 @@
 # 动态 GUI → API / CLI
 
+多模态内容通过[资源接口](RESOURCES.md)关联 control_ref：resources 发现元数据，resource_describe 复核来源，resource_read 显式读取内容，resource_release 释放引用或清理文件。媒体节点存在、消息级分组、取得文件字节与模型理解是分别验证的能力。
+
 本地绑定缓存支持单控件实时验证、缓存 rebind 和基于 ref 的定点后置校验，详见 [缓存与测速](CACHE.md)。目录执行可复用原始绑定；缓存失效时重新观察。
 
 这层直接枚举当前软件暴露的界面对象，给每个对象生成方法和参数 schema，不要求先注册“搜索联系人”“播放音乐”等业务功能。协议是 `appctl.gui/1`，实现位于 `gui_api.py`、`gui_runtime.py` 和 `bridges/gui_dom.js`。旧的命名业务功能层仍可使用，但不是调用 GUI 的前提。
@@ -121,7 +123,7 @@ with GuiSession() as gui:
     # cursor 非空时继续 scan；root_ref 可用于缩小到某个子树。
 ```
 
-MCP 服务 `python appctl_mcp.py` 的 GUI 工具为：`gui_schema`、`gui_attach`、`gui_find`、`gui_scan`、`gui_describe`、`gui_invoke`、`gui_detach`。已有工具一并保留，当前共 35 个。
+MCP 服务 `python appctl_mcp.py` 保留现有工具，并增加 `gui_resources`、`gui_resource_describe`、`gui_resource_read`、`gui_resource_release`，当前共 48 个工具。
 
 `find/gui_find` 先补齐有界观察的分页，再在缓存中按名称、角色、ID、类名搜索词、方法、启用/离屏状态和 `within_ref` 后代范围筛选；不读取控件值。默认紧凑返回，`refresh=true` 更新观察，`offset/limit` 分页筛选结果，`collection_truncated` 描述提供者的采集边界。Python `controls()` 使用相同匹配规则；字符串匹配不区分大小写。`gui_invoke` 同时接受 `click/read_text/set_text/check/uncheck` 等短操作名。
 

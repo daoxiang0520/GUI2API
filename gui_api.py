@@ -121,7 +121,8 @@ def filter_controls(rows, args):
 
 
 class GuiSession:
-    def __init__(self, desktop_factory=DesktopSession, *, object_config=None, discovery_cache=None, events_factory=None, learning_cache=None):
+    def __init__(self, desktop_factory=DesktopSession, *, object_config=None, discovery_cache=None, events_factory=None, learning_cache=None,
+                 resource_root=None, resource_capture=None):
         self.desktop_factory, self._desktop = desktop_factory, None
         self.sources, self.refs = {}, OrderedDict()
         self.lock, self.closed = threading.RLock(), False
@@ -133,6 +134,14 @@ class GuiSession:
         self.learning_error = None
         self.action_health = {}
         self.cache_stats = {'binding_hits':0, 'binding_misses':0, 'bound_reads':0}
+        self.resource_root,self.resource_capture,self._resources=resource_root,resource_capture,None
+
+    @property
+    def resources(self):
+        if self._resources is None:
+            from gui_resources import Resources
+            self._resources=Resources(self,self.resource_root,self.resource_capture)
+        return self._resources
 
     @property
     def learning(self):
@@ -410,6 +419,13 @@ class GuiSession:
             item = {**row, 'ref': ref, 'native_ref': row['ref'], 'parent': source['id']+'/'+row['parent'] if row.get('parent') else None,
                     'source': source['id'], 'methods': list(row.get('actions', [])), 'capability_state': 'advertised',
                     'purpose_evidence': row.get('name_source', 'provider name/role; inferred purpose is unverified')}
+            declarations=item.pop('resources',[])
+            if isinstance(declarations,list) and declarations:
+                item['_resources']=declarations
+                item['resource_kinds']=sorted({d['kind'] for d in declarations if isinstance(d,dict) and d.get('kind') in ('image','audio','video','document','file','text')})
+                item['resource_count']=len(declarations)
+            elif item.get('role') in ('Image','Canvas'):
+                item.update(resource_kinds=['image'],resource_count=1)
             if not source['adapter'] and not item.get('password'):
                 rect = item.get('rect',{})
                 live = not item.get('offscreen') and rect.get('width',0) > 0 and rect.get('height',0) > 0
@@ -427,7 +443,7 @@ class GuiSession:
                 item['recommended_method']='click_input' if weak and 'click_input' in item['methods'] else 'invoke_with_postcondition'
             self.refs[ref] = {'row': item, 'source': source['id'], 'seen': time.monotonic()}
             self.refs.move_to_end(ref)
-            rows.append({k: v for k, v in item.items() if k != 'native_ref'})
+            rows.append({k: v for k, v in item.items() if k != 'native_ref' and not k.startswith('_')})
         while len(self.refs) > 20000:
             self.refs.popitem(last=False)
         data['gaps'] = [{**gap, **({'ref':source['id']+'/'+gap['ref']} if gap.get('ref') else {})}
@@ -774,6 +790,7 @@ class GuiSession:
         source = self.sources.pop(key, None)
         if source is None:
             raise Fault('unknown_source', 'Source is not attached')
+        if self._resources:self._resources.release_source(key)
         if self._discovery: self._discovery.release_source(key)
         if self._events: self._events.unsubscribe(key)
         if self._learning: self._learn('release',key)
@@ -809,7 +826,8 @@ class GuiSession:
                     op, args = 'call', {'ref':args.get('ref'), 'method':op, 'arguments':params,'postcondition':args.get('postcondition')}
                 if op == 'schema':
                     data = {'protocol':PROTOCOL, 'operations':['apps','targets','attach','scan','find','describe','call','detach','close',
-                            'discover','discovery_describe','discovery_invoke','discovery_events','learning_graph','rebind','learning_export','learning_import','window_action',*SHORTCUTS],
+                            'discover','discovery_describe','discovery_invoke','discovery_events','learning_graph','rebind','learning_export','learning_import','window_action',
+                            'resources','resource_describe','resource_read','resource_release',*SHORTCUTS],
                             'shortcuts':SHORTCUTS,
                             'methods':METHODS, 'app_feature_registration_required':False, 'universal_coverage':False,
                             'selectors':{'fields':['name','role','automation_id','backend','method','query','within_ref','enabled','offscreen','onscreen'],
@@ -823,6 +841,12 @@ class GuiSession:
                                 'escape':'one ESC to verified foreground window, without editor focus; no arbitrary window typing',
                                 'accessibility':'documented client handshake only; Chromium launch flag returned as explicit relaunch plan, never auto-run'},
                             'input_methods':list(INPUT_METHODS),
+                            'resources':{'format':'appctl.resources/1','kinds':['image','audio','video','document','file','text'],
+                                'discovery':'metadata only; no automatic byte fetch, recording or screenshot',
+                                'read':'source bytes or explicit rendered representation; immutable artifacts with SHA256',
+                                'native_limits':'image/canvas roles expose rendered candidates, not original files',
+                                'retention':'artifact files remain until explicit cleanup; live refs are session-bound',
+                                'model_support':'native delivery depends on host and model; a file reference is not perception'},
                             'learning':{'format':'appctl.learning/1','mode':'incremental from requested actions and later observations',
                                 'automatic_exploration_actions':0,'graph_query':'learning_graph(source)',
                                 'persistent_binding_authority':False,'stored_ui_values':False},
@@ -843,6 +867,13 @@ class GuiSession:
                 elif op == 'attach': data = self._attach(args)
                 elif op == 'scan': data = self._scan(args)
                 elif op == 'find': data = self._find(args,explicit=True)
+                elif op in ('resources','resource_describe','resource_read','resource_release'):
+                    import inspect
+                    function={'resources':self.resources.list,'resource_describe':self.resources.describe,
+                              'resource_read':self.resources.read,'resource_release':self.resources.release}[op]
+                    try:inspect.signature(function).bind(**args)
+                    except TypeError as exc:raise Fault('invalid_arguments',str(exc)) from exc
+                    data=function(**args)
                 elif op in ('learning_graph','rebind','learning_export','learning_import'):
                     import inspect
                     function={'learning_graph':self.learning.query,'rebind':self.learning.rebind,
@@ -855,7 +886,7 @@ class GuiSession:
                     return {**self.discovery.request(op,args), 'protocol':PROTOCOL}
                 elif op == 'describe':
                     row = self._record(args.get('ref'))['row']
-                    data = {k:v for k,v in row.items() if k != 'native_ref'}
+                    data = {k:v for k,v in row.items() if k != 'native_ref' and not k.startswith('_')}
                     data.update(methods={m:METHODS[m] for m in row['methods']}, metadata_is_last_observation=True,
                                 aliases={k:v for k,v in SHORTCUTS.items() if k != v and v in row['methods']})
                 elif op == 'call': return {**self._call(args), 'protocol':PROTOCOL}
@@ -889,6 +920,7 @@ class GuiSession:
                 outcomes.append({'desktop_cleanup_error':str(exc)})
             finally:
                 self.closed, self.cleanup = True, outcomes
+                if self._resources:self._resources.close()
                 self.refs.clear()
             return self.cleanup
 

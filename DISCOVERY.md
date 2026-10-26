@@ -55,7 +55,7 @@ python -X utf8 guictl.py --object-config objects.example.json session
 
 控件条目的参数沿用其方法 schema；例如 `set` 使用 `{"value":"文本"}`，`scroll_input` 使用 `{"direction":"up","steps":3}`。对象方法使用 `{"arguments":[...]}`，对象属性写入使用 `{"value":...}`。属性 getter 也可能产生副作用，只有显式调用时才会执行。
 
-MCP 和 DSH 都提供 `gui_discover`、`gui_discovery_describe`、`gui_discovery_invoke`、`gui_discovery_events`，以及增量学习、rebind、导入/导出和窗口恢复工具。DSH 插件源码版本为 **0.5.0**，共 24 个工具。现有本地 link 会在下次插件加载时读取新版，本次不修改 profile 或重启 Host。
+MCP 和 DSH 都提供 `gui_discover`、`gui_discovery_describe`、`gui_discovery_invoke`、`gui_discovery_events`，以及增量学习、rebind、导入/导出和窗口恢复工具。DSH 插件源码版本为 **0.5.0**，当前共 28 个工具，含 4 个资源工具。现有本地 link 会在下次插件加载时读取新版，本次不修改 profile 或重启 Host。
 
 ## 缓存、失效与验证
 
@@ -77,4 +77,4 @@ MCP 和 DSH 都提供 `gui_discover`、`gui_discovery_describe`、`gui_discovery
 
 这层实现了自动发现、统一目录、确定绑定、缓存和失效重探。任意原生 C++ 实例的执行环境接入、通用调用链跟踪、GUI 操作与私有业务方法自动归因、HTTP OpenAPI 自动探测和通用业务语义认证尚未实现；当前探索也不会自动打开所有隐藏页面或遍历所有菜单。
 
-保留原始快照及 0.3.1、0.4.0 等发布包。当前 0.5.0 插件和配套后端见 `plugins/dsh-gui2api-bot/dist/`，本地 link 在下次插件加载时读取新版；不修改 profile 或重启 Host，见 [本轮记录](https://github.com/daoxiang0520/GUI2API/blob/main/docs/VALIDATION.md)。
+保留原始快照及 0.3.1、0.4.0 等发布包。插件源码单独维护于 [dsh-winbot](https://github.com/daoxiang0520/dsh-winbot)，需同步更新配套 GUI2API 后端，本地 link 在下次插件加载时读取新版；不修改 profile 或重启 Host，见 [本轮记录](https://github.com/daoxiang0520/GUI2API/blob/main/docs/VALIDATION.md)。

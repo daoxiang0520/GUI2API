@@ -1,0 +1,31 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>GUI2API resource fixture</title>
+<style>img,canvas,video{width:64px;height:48px}#background{width:32px;height:32px;background-image:url('/tile.png')}</style>
+<img id="photo" src="/tile.png" alt="Owned image"><img id="mutable" src="/tile.png" alt="Mutable image">
+<audio id="voice" src="/voice.wav" preload="metadata" controls></audio>
+<video id="clip" src="/clip.webm" preload="auto" muted controls></video><video id="live" muted></video>
+<canvas id="surface" width="64" height="48"></canvas><div id="background"></div>
+<a id="document" href="/document.pdf" type="application/pdf" download="owned.pdf">Document</a>
+<a id="binary" href="/payload.bin" download="owned.bin">File</a>
+<a id="text" href="/note.txt" type="text/plain" download="note.txt">Text</a>
+<a id="redirect" href="/redirect" download="redirect.bin">Redirect</a>
+<input id="selected" type="file"><output id="ready">loading</output>
+<script>
+window.fixture={ready:false};
+window.addEventListener('error',event=>{window.fixture.error=event.message});
+window.addEventListener('unhandledrejection',event=>{window.fixture.error=String(event.reason)});
+const canvas=document.querySelector('#surface'),paint=canvas.getContext('2d');
+paint.fillStyle='#2878ff';paint.fillRect(0,0,64,48);paint.fillStyle='#ffda29';paint.fillRect(8,8,24,24);
+const file=new File([new Uint8Array([11,22,33,44,55])],'selected.bin',{type:'application/octet-stream'});
+const transfer=new DataTransfer();transfer.items.add(file);document.querySelector('#selected').files=transfer.files;
+document.querySelector('#live').srcObject=canvas.captureStream(10);
+(async()=>{
+  const clip=document.querySelector('#clip');
+  await new Promise((resolve,reject)=>{
+    if(clip.readyState>=2)return resolve();
+    clip.onloadeddata=resolve;clip.onerror=()=>reject(new Error('Owned video failed to decode: '+clip.error?.message));
+  });
+  window.fixture.videoWidth=clip.videoWidth;window.fixture.videoHeight=clip.videoHeight;
+  window.fixture.videoDecoded=clip.readyState>=2 && clip.videoWidth>0;
+  window.fixture.ready=true;document.querySelector('#ready').textContent='ready';
+})();
+</script></html>

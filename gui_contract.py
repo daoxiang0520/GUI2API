@@ -1,6 +1,12 @@
 """One recovery vocabulary for CLI, MCP and DSH responses."""
 
 NEXT = {
+    'stale_resource':'list_resources_again','resource_changed':'list_resources_again',
+    'resource_unavailable':'inspect_resource_availability','resource_source_unavailable':'use_explicit_rendered_or_resource_provider',
+    'resource_scheme_unavailable':'use_a_read_only_resource_provider','stream_unavailable':'use_an_explicit_stream_provider',
+    'representation_unavailable':'choose_an_advertised_representation','resource_capture_unavailable':'use_a_verified_capture_provider',
+    'resource_not_visible':'show_the_resource_then_read','resource_too_large':'raise_explicit_budget_or_use_a_smaller_variant',
+    'resource_storage_limit':'release_owned_artifacts','resource_timeout':'inspect_availability_without_replaying_actions',
     'stale_ref':'find_or_rebind', 'stale_capability':'rediscover', 'stale_catalog':'rediscover',
     'stale_cursor':'rescan', 'stale_snapshot':'rescan', 'unknown_source':'attach',
     'target_occluded':'bring_to_front_or_dismiss_popup', 'target_unavailable':'restore_then_find',
